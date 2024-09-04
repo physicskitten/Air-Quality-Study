@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project involves analyzing and modeling air quality data using various data processing, visualization, and machine learning techniques. The goal is to predict the concentration of Benzene (`C6H6(GT)`) in the air based on several sensor readings. The project includes data preprocessing, exploratory data analysis, feature engineering, and the implementation of a simple Artificial Neural Network (ANN) using PyTorch for regression.
+This project involves analyzing and modeling air quality data using various data processing, visualization, and machine learning techniques using the EDA guide by Shahid Zikria on Kaggle. The goal is to predict the concentration of Benzene (`C6H6(GT)`) in the air based on several sensor readings. The project includes data preprocessing, exploratory data analysis, feature engineering, and the implementation of a simple Artificial Neural Network (ANN) using PyTorch for regression.
 
 ## Prerequisites
 
@@ -16,10 +16,6 @@ Ensure that the following Python libraries are installed:
 - `numpy`: Numerical computing
 - `scikit-learn`: Machine learning tools
 - `torch`: PyTorch library for deep learning
-
-You can install these libraries using pip:
-
-```bash
 
 ## Data Description
 
