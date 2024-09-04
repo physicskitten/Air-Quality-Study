@@ -64,3 +64,116 @@ plt.show()
 print("Summary statistics of the dataset:")
 print(df.describe())
 
+# Since the data is real valued, we should replace all the null values with mean of each column
+for i in col:
+    df[i] = df[i].fillna(df[i].mean())
+
+df.isna().sum
+
+# Plot box plots for summary statistics of numerical columns
+plt.figure(figsize=(12, 8))
+sns.boxplot(data=df)
+plt.title('Box Plot for Outliers checking')
+plt.xticks(rotation=45)
+plt.show()
+
+# getting the quartile one and quartile 3 values of each column
+Q1 = df.quantile(0.25)
+Q3 = df.quantile(0.75)
+# finally calculating the interquartile range IQR
+IQR = Q3 - Q1
+
+# if the values fall behind Q1 - (1.5 * IQR) or above Q3 + 1.5*IQR,
+#then it is been defined as outlier
+((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).sum()
+
+mask = (df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))
+mask
+
+# now replacing all the outliers using the median of that particular column
+for i in mask.columns:
+    df[i].astype('float')
+    temp = df[i].median()
+    df.loc[mask[i], i] = temp
+
+# outliers are now being handled and are replaced with that column's median value
+((df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR))).sum()
+
+# Plot box plots for summary statistics of numerical columns
+plt.figure(figsize=(12, 8))
+sns.boxplot(data=df)
+plt.xticks(rotation=45)
+plt.show()
+
+plt.figure(figsize=(10,5))
+sns.heatmap(df.corr(),cmap='YlGnBu',annot=True)
+plt.show()
+
+# choosing features and target variable
+X = df[['CO(GT)', 'PT08.S1(CO)', 'PT08.S2(NMHC)', 'NOx(GT)', 'PT08.S3(NOx)', 'NO2(GT)', 'PT08.S4(NO2)','PT08.S5(O3)']]
+y = df['C6H6(GT)']
+
+X_tensor = torch.tensor(X.values, dtype=torch.float32)
+y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1, 1)
+
+# Splitting the data into training, validation, and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=0.1, random_state=42)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
+
+y_train
+
+# You have to modify the model as instructed in the instructions.
+class ANN(nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(ANN, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+# Initialize the model
+input_size = X_train.shape[1]
+hidden_size = 64  # adjust as needed
+model = ANN(input_size, hidden_size)
+
+# Define loss function and optimizer
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# Training the model with validation
+num_epochs = 100 
+for epoch in range(num_epochs):
+    # Forward pass
+    outputs = model(X_train)
+    loss = criterion(outputs, y_train)
+    
+    # Validation
+    with torch.no_grad():
+        val_outputs = model(X_val)
+        val_loss = criterion(val_outputs, y_val)
+
+    
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    if (epoch+1) % 10 == 0:
+        print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss.item():.4f}')
+
+  # Evaluation
+with torch.no_grad():
+    y_pred_train = model(X_train)
+    train_rmse = torch.sqrt(criterion(y_pred_train, y_train)).item()
+    train_r2 = r2_score(y_train.numpy(), y_pred_train.numpy())
+
+    y_pred_test = model(X_test)
+    test_rmse = torch.sqrt(criterion(y_pred_test, y_test)).item()
+    test_r2 = r2_score(y_test.numpy(), y_pred_test.numpy())
+
+print("Train RMSE:", train_rmse)
+print("Test RMSE:", test_rmse)
+print("Train R^2 Score:", train_r2)
+print("Test R^2 Score:", test_r2)
