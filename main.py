@@ -3,44 +3,48 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.linear_model import LinearRegression
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 # Load the dataset
+# The dataset is loaded with a semicolon separator and comma as the decimal point.
 df = pd.read_csv("USB/Air-Quality-Study/AirQuality.csv", sep=";", decimal=",")
 print("First few rows of the dataset:")
 print(df.head())
 
 # Visualize missing data using a heatmap
+# This helps in understanding the extent and pattern of missing data in the dataset.
 plt.figure(figsize=(12, 6))
 sns.heatmap(df.isna(), yticklabels=False, cmap='crest', cbar=False)
 plt.title("Heatmap of Missing Data")
 plt.show()
 
 # Remove unnecessary columns (e.g., unnamed index columns)
+# Unnamed columns are usually generated when the index is stored as a column during CSV creation.
 df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 print("Dataset after removing unnecessary columns:")
 print(df.head())
 
 # Replace -200 values with NaN (missing data)
+# -200 is used in this dataset to represent missing or invalid data.
 df.replace(to_replace=-200, value=np.nan, inplace=True)
 
 # Drop rows with missing data
+# This is a straightforward approach to handle missing data, but might result in data loss.
+# Consider using imputation techniques if too much data is being dropped.
 df.dropna(inplace=True)
 print("Dataset after dropping rows with missing data:")
 print(df.tail())
 
 # Feature Engineering: Extract 'Month' from 'Date' if applicable
+# This helps in analyzing seasonal trends in air quality.
 df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
 df['Month'] = df['Date'].dt.month
 
 # Visualization: Histogram of CO(GT)
+# Visualize the distribution of CO levels to understand its frequency and range.
 plt.figure(figsize=(10, 6))
 df['CO(GT)'].plot(kind='hist', bins=20, color='skyblue', edgecolor='black')
 plt.title('Distribution of CO(GT)')
@@ -50,6 +54,7 @@ plt.gca().spines[['top', 'right']].set_visible(False)
 plt.show()
 
 # Visualization: Average CO(GT) by Month
+# Analyze how CO levels vary month by month to check for seasonal patterns.
 monthly_avg = df.groupby('Month')['CO(GT)'].mean()
 
 plt.figure(figsize=(10, 6))
@@ -61,58 +66,63 @@ plt.gca().spines[['top', 'right']].set_visible(False)
 plt.show()
 
 # Additional Data Exploration: Summary statistics
+# Provides insights into central tendency, dispersion, and overall data distribution.
 print("Summary statistics of the dataset:")
 print(df.describe())
 
-# Since the data is real valued, we should replace all the null values with mean of each column
-for i in col:
-    df[i] = df[i].fillna(df[i].mean())
+# Impute missing values with column mean
+# Instead of dropping rows, missing data is replaced with the mean of the respective column.
+for col in df.columns:
+    df[col] = df[col].fillna(df[col].mean())
 
-df.isna().sum
+print("Missing values after imputation:")
+print(df.isna().sum())
 
-# Plot box plots for summary statistics of numerical columns
+# Box Plot for Outliers
+# Visualize outliers in the data. Outliers are potential anomalies and can affect model performance.
 plt.figure(figsize=(12, 8))
 sns.boxplot(data=df)
 plt.title('Box Plot for Outliers checking')
 plt.xticks(rotation=45)
 plt.show()
 
-# getting the quartile one and quartile 3 values of each column
+# Calculate Interquartile Range (IQR) for outlier detection
 Q1 = df.quantile(0.25)
 Q3 = df.quantile(0.75)
-# finally calculating the interquartile range IQR
 IQR = Q3 - Q1
 
-# if the values fall behind Q1 - (1.5 * IQR) or above Q3 + 1.5*IQR,
-#then it is been defined as outlier
-((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).sum()
+# Detect outliers beyond 1.5 * IQR from Q1 and Q3
+outlier_mask = (df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))
 
-mask = (df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))
-mask
+# Replace outliers with the median of the respective column
+for col in outlier_mask.columns:
+    median = df[col].median()
+    df.loc[outlier_mask[col], col] = median
 
-# now replacing all the outliers using the median of that particular column
-for i in mask.columns:
-    df[i].astype('float')
-    temp = df[i].median()
-    df.loc[mask[i], i] = temp
+# Verify outliers handling
+print("Outliers after replacement:")
+print(((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).sum())
 
-# outliers are now being handled and are replaced with that column's median value
-((df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR))).sum()
-
-# Plot box plots for summary statistics of numerical columns
+# Box Plot after handling outliers
 plt.figure(figsize=(12, 8))
 sns.boxplot(data=df)
+plt.title('Box Plot after Outlier Handling')
 plt.xticks(rotation=45)
 plt.show()
 
-plt.figure(figsize=(10,5))
-sns.heatmap(df.corr(),cmap='YlGnBu',annot=True)
+# Correlation Heatmap
+# Visualize correlations between features to identify potential relationships.
+plt.figure(figsize=(10, 5))
+sns.heatmap(df.corr(), cmap='YlGnBu', annot=True)
+plt.title('Correlation Matrix')
 plt.show()
 
-# choosing features and target variable
-X = df[['CO(GT)', 'PT08.S1(CO)', 'PT08.S2(NMHC)', 'NOx(GT)', 'PT08.S3(NOx)', 'NO2(GT)', 'PT08.S4(NO2)','PT08.S5(O3)']]
+# Feature Selection and Target Variable
+# Select features (independent variables) and the target variable for model training.
+X = df[['CO(GT)', 'PT08.S1(CO)', 'PT08.S2(NMHC)', 'NOx(GT)', 'PT08.S3(NOx)', 'NO2(GT)', 'PT08.S4(NO2)', 'PT08.S5(O3)']]
 y = df['C6H6(GT)']
 
+# Convert the features and target variable to PyTorch tensors
 X_tensor = torch.tensor(X.values, dtype=torch.float32)
 y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1, 1)
 
@@ -120,9 +130,7 @@ y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1, 1)
 X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=0.1, random_state=42)
 X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
 
-y_train
-
-# You have to modify the model as instructed in the instructions.
+# Define an Artificial Neural Network (ANN) model
 class ANN(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(ANN, self).__init__()
@@ -130,18 +138,18 @@ class ANN(nn.Module):
         self.fc2 = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = torch.relu(self.fc1(x))  # ReLU activation function
+        x = self.fc2(x)  # Output layer
         return x
 
 # Initialize the model
-input_size = X_train.shape[1]
-hidden_size = 64  # adjust as needed
+input_size = X_train.shape[1]  # Number of input features
+hidden_size = 64  # Number of neurons in the hidden layer
 model = ANN(input_size, hidden_size)
 
 # Define loss function and optimizer
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.MSELoss()  # Mean Squared Error Loss for regression
+optimizer = optim.Adam(model.parameters(), lr=0.001)  # Adam optimizer
 
 # Training the model with validation
 num_epochs = 100 
@@ -150,12 +158,12 @@ for epoch in range(num_epochs):
     outputs = model(X_train)
     loss = criterion(outputs, y_train)
     
-    # Validation
+    # Validation pass
     with torch.no_grad():
         val_outputs = model(X_val)
         val_loss = criterion(val_outputs, y_val)
 
-    
+    # Backward pass and optimization
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -163,7 +171,7 @@ for epoch in range(num_epochs):
     if (epoch+1) % 10 == 0:
         print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {loss.item():.4f}, Val Loss: {val_loss.item():.4f}')
 
-  # Evaluation
+# Evaluation on Training and Test Data
 with torch.no_grad():
     y_pred_train = model(X_train)
     train_rmse = torch.sqrt(criterion(y_pred_train, y_train)).item()
