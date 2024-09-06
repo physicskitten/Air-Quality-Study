@@ -185,3 +185,32 @@ print("Train RMSE:", train_rmse)
 print("Test RMSE:", test_rmse)
 print("Train R^2 Score:", train_r2)
 print("Test R^2 Score:", test_r2)
+
+# Convert 'Date' and 'Time' columns to a single datetime column if not already done
+df['Datetime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'], format='%d/%m/%Y %H.%M.%S')
+
+# Extract various time-based features
+df['Year'] = df['Datetime'].dt.year
+df['Month'] = df['Datetime'].dt.month
+df['Day'] = df['Datetime'].dt.day
+df['Hour'] = df['Datetime'].dt.hour
+df['DayOfWeek'] = df['Datetime'].dt.dayofweek
+df['Weekend'] = df['DayOfWeek'].apply(lambda x: 1 if x >= 5 else 0)  # 1 if weekend else 0
+
+#Adding Time Based Feature Extraction for fun, hehe
+# Define seasons based on month (Northern Hemisphere season definitions)
+def get_season(month):
+    if month in [12, 1, 2]:
+        return 'Winter'
+    elif month in [3, 4, 5]:
+        return 'Spring'
+    elif month in [6, 7, 8]:
+        return 'Summer'
+    else:
+        return 'Fall'
+
+df['Season'] = df['Month'].apply(get_season)
+
+print("Extracted time-based features:")
+print(df[['Year', 'Month', 'Day', 'Hour', 'DayOfWeek', 'Weekend', 'Season']].head())
+
